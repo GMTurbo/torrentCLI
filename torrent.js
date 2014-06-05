@@ -187,7 +187,6 @@ var TorrentEngine = function(){
     }
     return ret;
   };
-  //row.push([torrent.name,torrent.size,torrent.ready ? torrent.percentDone.toFixed(3) + "%": torrent.message, torrent.seeders]);
 
   this.name = function() { return engine.torrent ? engine.torrent.name : 'unknown'; };
 
