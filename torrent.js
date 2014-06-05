@@ -28,166 +28,194 @@ var crypto = require("crypto");
 var mkdirp = require("mkdirp");
 var torrentStream = require("torrent-stream");
 
-var TorrentEngine = new events.EventEmitter();
+var EventEmitter = require('events').EventEmitter;
+var util = require('util');
 
-TorrentEngine.ready = false;
-TorrentEngine.done = false;
-TorrentEngine.opts = {
-    connections: 100,
-    uploads: 10,
-    path: process.cwd(),
-    verify: true,
-    dht: 10000,
-    tracker: true,
-    name: "tget"
-};
-TorrentEngine.total_pieces = 0;
-TorrentEngine.finished_pieces = 0;
-TorrentEngine.connect = [];
+var TorrentEngine = function(){
 
-var engine;
-var ephemeral = false;
-var wait = false;
-var download_snapshot = 0;
+  this.ready = false;
+  this.done = false;
+  this.opts = {
+      connections: 100,
+      uploads: 10,
+      path: process.cwd(),
+      verify: true,
+      dht: 10000,
+      tracker: true,
+      name: "torrentCLI"
+  };
+  this.total_pieces = 0;
+  this.finished_pieces = 0;
+  this.connect = [];
 
-function checkDone() {
-    if(TorrentEngine.finished_pieces == TorrentEngine.total_pieces) {
-        TorrentEngine.done = true;
-        TorrentEngine.emit("done");
+  var engine;
+  var ephemeral = false;
+  var wait = false;
+  var download_snapshot = 0;
+
+  var checkDone = function () {
+      if(this.finished_pieces == this.total_pieces) {
+          this.done = true;
+        //  this.emit("done");
+      }
+  }.bind(this);
+
+  this.load = function(torrent, opts, cb) {
+      // Missing argument
+      if(!torrent) {
+          return cb(null);
+      }
+
+      // Options
+      if(opts.c) { this.opts.connections = opts.c; }
+      if(opts.d) { this.opts.dht = (!opts.d || opts.d === true) ? false : opts.d; }
+      if(opts.t) { this.opts.tracker = false; }
+      if(opts.u) { this.opts.uploads = opts.u; }
+      if(opts.w) { wait = true; }
+
+      if(opts.e) {
+          ephemeral = true;
+          this.opts.path = null;  // Will download to /tmp
+      }
+
+      if(opts.p) {
+          if(Array.isArray(opts.p)) {
+              this.connect = opts.p;
+          } else {
+              this.connect.push(opts.p);
+          }
+      }
+
+      // Magnet link
+      if(torrent.slice(0, 7) == "magnet:") {
+          return cb(torrent, this);
+      }
+
+      // HTTP link
+      var https = torrent.slice(0, 8) == "https://";
+      if(https || torrent.slice(0, 7) == "http://") {
+          var http = require(https ? "https" : "http");
+          http.get(torrent, function(res) {
+              var buffers = [];
+
+              res.on("data", function(data) {
+                  buffers.push(data);
+              });
+
+              res.on("end", function() {
+                  cb(Buffer.concat(buffers));
+              });
+          });
+          return;
+      }
+
+      // Attempt to read a local file
+      return cb(fs.readFileSync(torrent, this));
+  };
+
+  this.init = function(torrent, opts) {
+      // TorrentStream instance
+      this.engine = engine = torrentStream(torrent, opts || this.opts);
+
+      // if(opts.l) {
+      //     engine.listen(opts.l);
+      // }
+
+      // Explicit peer connection
+      this.connect.forEach(function(peer) {
+          engine.connect(peer);
+      });
+
+      // Wait for torrent metadata to be available
+      engine.on("ready", function() {
+          this.ready = true;
+          this.total_pieces = engine.torrent.pieces.length;
+          this.torrent = engine.torrent;
+          this.wires = engine.swarm.wires;
+          this.files = engine.files.filter(function(file) {
+              // TODO: maybe a filtering option
+              return true;
+          });
+
+          // Start the download of every file (unless -w)
+          if(!wait) {
+              this.files.forEach(function(file) {
+                  file.select();
+              });
+          }
+
+          // Resuming a download ?
+          for(var i = 0; i < this.total_pieces; i++) {
+              if(engine.bitfield.get(i)) {
+                  ++this.finished_pieces;
+              }
+          }
+          checkDone();
+
+          // New piece downlaoded
+          engine.on("verify", function() {
+              download_snapshot = engine.swarm.downloaded;
+              ++this.finished_pieces;
+              checkDone();
+          });
+
+          // Pause or resume the swarm when interest changes
+          engine.on("uninterested", function() { engine.swarm.pause(); });
+          engine.on("interested", function() { engine.swarm.resume(); });
+
+          // We're ready
+          //this.emit("ready");
+      });
+  };
+
+  this.ready = function() { return engine.ready; };
+  this.downloadPercent = function() {
+      // Return range: 0-100
+      return Math.floor((this.finished_pieces/engine.total_pieces) * 100);
+  };
+
+  this.downloadSpeed = function() {
+      return engine.swarm.downloadSpeed();
+  };
+
+  this.downloadedBytes = function() {
+    var ret = 0;
+    try{
+      ret = (this.finished_pieces * engine.torrent.pieceLength) + (engine.swarm.downloaded - download_snapshot);
+    }catch(e){
+
     }
+    return ret;
+  };
+  //row.push([torrent.name,torrent.size,torrent.ready ? torrent.percentDone.toFixed(3) + "%": torrent.message, torrent.seeders]);
+
+  this.name = function() { return engine.torrent ? engine.torrent.name : 'unknown'; };
+
+  this.size = function() { return 100; };
+
+  this.seeders = function () {
+      if(!this.wires) return "0/0";
+      function active(wire) {
+          return !wire.peerChoking;
+      }
+
+      return this.wires.filter(active).length + "/" + this.wires.length + " peers";
+  };
+
+  this.exit = function(cb) {
+      engine.destroy(function() {
+          if(ephemeral || this.done) {
+              engine.remove(!ephemeral, function() {
+                  cb();
+              });
+          } else {
+              cb();
+          }
+      });
+  };
+
 };
 
-TorrentEngine.load = function(torrent, opts, cb) {
-    // Missing argument
-    if(!torrent) {
-        return cb(null);
-    }
-
-    // Options
-    if(opts.c) { TorrentEngine.opts.connections = opts.c; }
-    if(opts.d) { TorrentEngine.opts.dht = (!opts.d || opts.d === true) ? false : opts.d; }
-    if(opts.t) { TorrentEngine.opts.tracker = false; }
-    if(opts.u) { TorrentEngine.opts.uploads = opts.u; }
-    if(opts.w) { wait = true; }
-
-    if(opts.e) {
-        ephemeral = true;
-        TorrentEngine.opts.path = null;  // Will download to /tmp
-    }
-
-    if(opts.p) {
-        if(Array.isArray(opts.p)) {
-            TorrentEngine.connect = opts.p;
-        } else {
-            TorrentEngine.connect.push(opts.p);
-        }
-    }
-
-    // Magnet link
-    if(torrent.slice(0, 7) == "magnet:") {
-        return cb(torrent);
-    }
-
-    // HTTP link
-    var https = torrent.slice(0, 8) == "https://";
-    if(https || torrent.slice(0, 7) == "http://") {
-        var http = require(https ? "https" : "http");
-        http.get(torrent, function(res) {
-            var buffers = [];
-
-            res.on("data", function(data) {
-                buffers.push(data);
-            })
-
-            res.on("end", function() {
-                cb(Buffer.concat(buffers));
-            })
-        });
-        return;
-    }
-
-    // Attempt to read a local file
-    return cb(fs.readFileSync(torrent));
-};
-
-TorrentEngine.init = function(torrent, opts) {
-    // TorrentStream instance
-    TorrentEngine.engine = engine = torrentStream(torrent, opts || TorrentEngine.opts);
-
-    if(opts.l) {
-        engine.listen(opts.l);
-    }
-
-    // Explicit peer connection
-    TorrentEngine.connect.forEach(function(peer) {
-        engine.connect(peer);
-    });
-
-    // Wait for torrent metadata to be available
-    engine.on("ready", function() {
-        TorrentEngine.ready = true;
-        TorrentEngine.total_pieces = engine.torrent.pieces.length;
-        TorrentEngine.torrent = engine.torrent;
-        TorrentEngine.wires = engine.swarm.wires;
-        TorrentEngine.files = engine.files.filter(function(file) {
-            // TODO: maybe a filtering option
-            return true;
-        });
-
-        // Start the download of every file (unless -w)
-        if(!wait) {
-            TorrentEngine.files.forEach(function(file) {
-                file.select();
-            });
-        }
-
-        // Resuming a download ?
-        for(var i = 0; i < TorrentEngine.total_pieces; i++) {
-            if(engine.bitfield.get(i)) {
-                ++TorrentEngine.finished_pieces;
-            }
-        }
-        checkDone();
-
-        // New piece downlaoded
-        engine.on("verify", function() {
-            download_snapshot = engine.swarm.downloaded;
-            ++TorrentEngine.finished_pieces;
-            checkDone();
-        });
-
-        // Pause or resume the swarm when interest changes
-        engine.on("uninterested", function() { engine.swarm.pause(); });
-        engine.on("interested", function() { engine.swarm.resume(); });
-
-        // We're ready
-        TorrentEngine.emit("ready");
-    });
-};
-
-TorrentEngine.downloadPercent = function() {
-    // Return range: 0-100
-    return Math.floor((TorrentEngine.finished_pieces/TorrentEngine.total_pieces) * 100);
-};
-
-TorrentEngine.downloadSpeed = function() {
-    return engine.swarm.downloadSpeed();
-};
-
-TorrentEngine.downloadedBytes = function() {
-    return (TorrentEngine.finished_pieces * engine.torrent.pieceLength) + (engine.swarm.downloaded - download_snapshot);
-};
-
-TorrentEngine.exit = function(cb) {
-    engine.destroy(function() {
-        if(ephemeral || TorrentEngine.done) {
-            engine.remove(!ephemeral, function() {
-                cb()
-            });
-        } else {
-            cb();
-        }
-    });
-};
+util.inherits(TorrentEngine, EventEmitter);
 
 module.exports = TorrentEngine;
