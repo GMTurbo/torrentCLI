@@ -22,6 +22,9 @@
   "homepage": "https://github.com/GMTurbo/torrentCLI",
   "dependencies": {
     "cli-table": "^0.3.0",
-    "keypress": "^0.2.1"
+    "clipboard": "^0.1.1",
+    "keypress": "^0.2.1",
+    "mkdirp": "^0.5.0",
+    "torrent-stream": "^0.12.0"
   }
 }
