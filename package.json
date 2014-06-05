@@ -1,0 +1,23 @@
+{
+  "name": "torrentCLI",
+  "version": "0.0.0",
+  "description": "commandline tool for downloading and managing torrents",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tests/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GMTurbo/torrentCLI.git"
+  },
+  "keywords": [
+    "torrent",
+    "cli"
+  ],
+  "author": "Gabe Testa <gabe.testa@gmail.com> (http://www.github.com/gmturbo)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/GMTurbo/torrentCLI/issues"
+  },
+  "homepage": "https://github.com/GMTurbo/torrentCLI"
+}
