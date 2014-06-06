@@ -21,12 +21,15 @@ create a new instance of the CLI
 
 //THIS IS STILL A WORK IN PROGRESS
 ##Add
-to add a torrent to the cli, have the *magnet link copied to your clipboard* then press a.
+to add a torrent to the cli, have the *magnet link copied to your clipboard* then press 'a'.
+
+##Pause/Resume
+select the torrent you want to pause/resume by pressing the up and down arrows, then press 'p'
 
 ##implemented
-add
+add, pause, resume,
 ##not implemented
-pause, resume, remove, delete
+remove, delete
 
 # install
 
