@@ -33,6 +33,7 @@ var util = require('util');
 
 var TorrentEngine = function(){
 
+  this.status = 'loading';
   this.ready = false;
   this.done = false;
   this.opts = {
@@ -52,6 +53,8 @@ var TorrentEngine = function(){
   var ephemeral = false;
   var wait = false;
   var download_snapshot = 0;
+
+  this.magnet = '';
 
   var checkDone = function () {
       if(this.finished_pieces == this.total_pieces) {
@@ -88,6 +91,7 @@ var TorrentEngine = function(){
 
       // Magnet link
       if(torrent.slice(0, 7) == "magnet:") {
+          this.magnet = torrent;
           return cb(torrent, this);
       }
 
@@ -116,7 +120,7 @@ var TorrentEngine = function(){
   this.init = function(torrent, opts) {
       // TorrentStream instance
       this.engine = engine = torrentStream(torrent, opts || this.opts);
-
+      this.status = 'initiliazing...';
       // if(opts.l) {
       //     engine.listen(opts.l);
       // }
@@ -141,7 +145,7 @@ var TorrentEngine = function(){
 
           // Start the download of every file (unless -w)
           if(!wait) {
-              self.files.forEach(function(file) {
+              engine.files.forEach(function(file) {
                   file.select();
               });
           }
@@ -153,6 +157,8 @@ var TorrentEngine = function(){
               }
           }
           checkDone();
+
+          self.status = 'downloading';
 
           // New piece downlaoded
           engine.on("verify", function() {
@@ -200,6 +206,20 @@ var TorrentEngine = function(){
       }
 
       return this.wires.filter(active).length + "/" + this.wires.length + " peers";
+  };
+
+  var paused = false;
+
+  this.toggleRunState = function(){
+
+      paused = !paused;
+
+      engine.files.forEach(function(file) {
+          paused ? file.deselect() : file.select();
+      });
+
+      this.status = paused ? 'paused' : 'downloading';
+
   };
 
   this.exit = function(cb) {
