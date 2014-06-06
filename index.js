@@ -79,9 +79,9 @@ var torrentCLI = function(){
   var createRow = function(torrent, index) {
 
     var row = new Table({
-      head: ['name', 'status', "% complete", 'Downloaded', 'speed', 'seeders'],
+      head: ['', 'status', "% complete", 'downloaded', 'speed', 'seeders'],
       chars: getChars(index),
-      colWidth: [30,20,20,20,20]
+      colWidth: [45,20,20,20,20]
     });
     row.push([utils.fill(torrent.name(),30),
               torrent.status,

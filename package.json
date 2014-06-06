@@ -1,6 +1,6 @@
 {
   "name": "torrentCLI",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "commandline tool for downloading and managing torrents",
   "main": "index.js",
   "scripts": {
