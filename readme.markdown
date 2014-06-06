@@ -1,5 +1,5 @@
 # torrentCLI
-[![torrentCLI](https://raw.githubusercontent.com/GMTurbo/torrentCLI/master/screens/torrentCLI%20screenshot1.png)](https://github.com/GMTurbo/torrentCLI)
+[![torrentCLI](https://raw.githubusercontent.com/GMTurbo/torrentCLI/master/screens/torrentCLI%20screen1.png)](https://github.com/GMTurbo/torrentCLI)
 
 A command line tool for downloading and managing torrents (for Node.js)
 
