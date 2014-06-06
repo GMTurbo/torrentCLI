@@ -56,7 +56,7 @@ var TorrentEngine = function(){
   var checkDone = function () {
       if(this.finished_pieces == this.total_pieces) {
           this.done = true;
-        //  this.emit("done");
+          this.emit("done");
       }
   }.bind(this);
 
@@ -126,28 +126,30 @@ var TorrentEngine = function(){
           engine.connect(peer);
       });
 
+      var self = this;
+
       // Wait for torrent metadata to be available
       engine.on("ready", function() {
-          this.ready = true;
-          this.total_pieces = engine.torrent.pieces.length;
-          this.torrent = engine.torrent;
-          this.wires = engine.swarm.wires;
-          this.files = engine.files.filter(function(file) {
+          self.ready = true;
+          self.total_pieces = engine.torrent.pieces.length;
+          self.torrent = engine.torrent;
+          self.wires = engine.swarm.wires;
+          self.files = engine.files.filter(function(file) {
               // TODO: maybe a filtering option
               return true;
           });
 
           // Start the download of every file (unless -w)
           if(!wait) {
-              this.files.forEach(function(file) {
+              self.files.forEach(function(file) {
                   file.select();
               });
           }
 
           // Resuming a download ?
-          for(var i = 0; i < this.total_pieces; i++) {
+          for(var i = 0; i < self.total_pieces; i++) {
               if(engine.bitfield.get(i)) {
-                  ++this.finished_pieces;
+                  ++self.finished_pieces;
               }
           }
           checkDone();
@@ -155,7 +157,7 @@ var TorrentEngine = function(){
           // New piece downlaoded
           engine.on("verify", function() {
               download_snapshot = engine.swarm.downloaded;
-              ++this.finished_pieces;
+              ++self.finished_pieces;
               checkDone();
           });
 
@@ -164,14 +166,13 @@ var TorrentEngine = function(){
           engine.on("interested", function() { engine.swarm.resume(); });
 
           // We're ready
-          //this.emit("ready");
+          self.emit("ready");
       });
   };
 
-  this.ready = function() { return engine.ready; };
   this.downloadPercent = function() {
       // Return range: 0-100
-      return Math.floor((this.finished_pieces/engine.total_pieces) * 100);
+      return Math.floor((this.finished_pieces/this.total_pieces) * 100);
   };
 
   this.downloadSpeed = function() {
@@ -190,7 +191,7 @@ var TorrentEngine = function(){
 
   this.name = function() { return engine.torrent ? engine.torrent.name : 'unknown'; };
 
-  this.size = function() { return 100; };
+  this.size = function() { return '~'; };
 
   this.seeders = function () {
       if(!this.wires) return "0/0";

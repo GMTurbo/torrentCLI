@@ -26,6 +26,14 @@ exports.pad = function(n, length) {
     return ("            ".slice(0, length-(""+n).length)) + n;
 };
 
+exports.fill = function(n, length){
+    if(n.length < length){
+      return n+Array(length-n.length+1).join(" ");
+    }else{
+      return n.substring(0, length);
+    }
+};
+
 // Format bytes size string
 exports.bytes = function(b) {
     var unit = 'B';
