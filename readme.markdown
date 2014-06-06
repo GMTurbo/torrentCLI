@@ -3,17 +3,11 @@
 
 A command line tool for downloading and managing torrents (for Node.js)
 
+This project wouldn't exist without extensive dissection of [tget](https://github.com/galedric/tget). I highly recommend everyone check it out.
+Open-source for the win!
 # Goal
 
 Create a simple cli tool that allows one to add, remove, pause, resume torrents through a CLI.
-
-This project wouldn't exist without extensive dissection of [tget](https://github.com/galedric/tget). Open-source for the win!
-
-# scripts
-
-## test
-
-runs the example test.
 
 # methods
 
