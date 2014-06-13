@@ -144,11 +144,11 @@ var TorrentEngine = function(){
           });
 
           // Start the download of every file (unless -w)
-          if(!wait) {
-              engine.files.forEach(function(file) {
-                  file.select();
-              });
-          }
+          //if(!wait) {
+          engine.files.forEach(function(file) {
+              file.select();
+          });
+          //}
 
           // Resuming a download ?
           for(var i = 0; i < self.total_pieces; i++) {
@@ -156,6 +156,7 @@ var TorrentEngine = function(){
                   ++self.finished_pieces;
               }
           }
+          
           checkDone();
 
           self.status = 'downloading';
@@ -215,7 +216,15 @@ var TorrentEngine = function(){
       paused = !paused;
 
       engine.files.forEach(function(file) {
-          paused ? file.deselect() : file.select();
+          paused ?
+          function(){
+            file.deselect();
+            engine.swarm.pause();
+          }() :
+          function(){
+            file.select();
+            engine.swarm.resume();
+          }();
       });
 
       this.status = paused ? 'paused' : 'downloading';
